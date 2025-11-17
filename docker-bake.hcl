@@ -13,11 +13,11 @@ variable NODE_VERSION {
 }
 
 variable "FRAPPE_VERSION" {
-    default = "develop"
+    default = "main"
 }
 
 variable "ERPNEXT_VERSION" {
-    default = "develop"
+    default = "main"
 }
 
 variable "FRAPPE_REPO" {
