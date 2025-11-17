@@ -6,7 +6,7 @@ on:
       version:
         description: "ERPNext version (v15, v14, develop)"
         required: true
-        default: "v15"
+        default: "version-15"
       python_version:
         description: "Python version"
         required: true
