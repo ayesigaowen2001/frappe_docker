@@ -1,12 +1,8 @@
-name: Safe ERPNext/Frappe Image Builder
+name: Full ERPNext Multi-Arch Builder
 
 on:
   workflow_dispatch:
     inputs:
-      repo:
-        description: "Choose the repository to build: frappe or erpnext"
-        required: true
-        default: "erpnext"
       version:
         description: "Version (develop, v15, v14, etc.)"
         required: true
@@ -20,24 +16,30 @@ on:
         required: true
         default: "18"
       push_to_dockerhub:
+        description: "Push images to Docker Hub?"
         type: boolean
         required: true
         default: true
-        description: "Push image to Docker Hub?"
 
 jobs:
-  safe-build:
-    name: Safe Multi-Arch Build
+  build-all:
+    name: Build Full ERPNext Stack
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        image:
+          - bench
+          - production
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set Up QEMU
+      - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
 
-      - name: Set Up Docker Buildx
+      - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
@@ -47,22 +49,23 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Multi-Arch Images
+      - name: Build ${{ matrix.image }} Image
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./images/${{ github.event.inputs.repo }}/Dockerfile
+          context: ./images/${{ matrix.image }}
+          file: ./images/${{ matrix.image }}/Dockerfile
           push: ${{ github.event.inputs.push_to_dockerhub == 'true' }}
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.repo }}:${{ github.event.inputs.version }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.repo }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/frappe-${{ matrix.image }}:${{ github.event.inputs.version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/frappe-${{ matrix.image }}:latest
           build-args: |
             PYTHON_VERSION=${{ github.event.inputs.python_version }}
             NODE_VERSION=${{ github.event.inputs.node_version }}
 
-      - name: Show Success Summary
+      - name: Summary
         run: |
-          echo "🎉 Build Completed Successfully"
-          echo "Repo: ${{ github.event.inputs.repo }}"
-          echo "Version: ${{ github.event.inputs.version }}"
+          echo "💚 BUILD SUCCESSFULLY COMPLETED"
+          echo "Images built:"
+          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/frappe-bench"
+          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/frappe-production"
