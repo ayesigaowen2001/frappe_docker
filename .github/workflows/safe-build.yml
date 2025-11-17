@@ -26,17 +26,11 @@ jobs:
     name: Build Full ERPNext Stack
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        image:
-          - bench
-          - production
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup QEMU
+      - name: Setup QEMU for multi-arch
         uses: docker/setup-qemu-action@v3
 
       - name: Setup Docker Buildx
@@ -49,23 +43,32 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build ${{ matrix.image }} Image
-        uses: docker/build-push-action@v6
+      - name: Set build environment variables
+        run: |
+          echo "PYTHON_VERSION=${{ github.event.inputs.python_version }}" >> "$GITHUB_ENV"
+          echo "NODE_VERSION=${{ github.event.inputs.node_version }}" >> "$GITHUB_ENV"
+          echo "FRAPPE_VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+          echo "ERPNEXT_VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+
+      - name: Debug List Dockerfile locations
+        run: |
+          ls -l images/bench
+          ls -l images/production
+
+      - name: Build all images with Docker Buildx Bake
+        uses: docker/bake-action@v6
         with:
-          context: ./images/${{ matrix.image }}
-          file: ./images/${{ matrix.image }}/Dockerfile
+          file: docker-bake.hcl
+          set: "bench,erpnext,base,build"
           push: ${{ github.event.inputs.push_to_dockerhub == 'true' }}
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/frappe-${{ matrix.image }}:${{ github.event.inputs.version }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/frappe-${{ matrix.image }}:latest
-          build-args: |
-            PYTHON_VERSION=${{ github.event.inputs.python_version }}
-            NODE_VERSION=${{ github.event.inputs.node_version }}
+        env:
+          REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
 
       - name: Summary
         run: |
           echo "💚 BUILD SUCCESSFULLY COMPLETED"
           echo "Images built:"
-          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/frappe-bench"
-          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/frappe-production"
+          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/bench"
+          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/erpnext"
+          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/base"
+          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/build"
