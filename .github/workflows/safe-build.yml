@@ -50,16 +50,11 @@ jobs:
           echo "FRAPPE_VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
           echo "ERPNEXT_VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
 
-      - name: Debug List Dockerfile locations
-        run: |
-          ls -l images/bench
-          ls -l images/production
-
       - name: Build all images with Docker Buildx Bake
         uses: docker/bake-action@v6
         with:
-          file: docker-bake.hcl
-          set: "bench,erpnext,base,build"
+          files: docker-bake.hcl
+          targets: bench,erpnext,base,build
           push: ${{ github.event.inputs.push_to_dockerhub == 'true' }}
         env:
           REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
