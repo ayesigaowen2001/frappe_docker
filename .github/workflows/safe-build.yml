@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version (develop, v15, v14, etc.)"
+        description: "Version (main, v15, v14, etc.)"
         required: true
-        default: "develop"
+        default: "main"
       python_version:
         description: "Python version"
         required: true
