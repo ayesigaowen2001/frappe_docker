@@ -1,23 +1,24 @@
 # Docker Buildx Bake build definition file
-# Reference: https://github.com/docker/buildx/blob/master/docs/reference/buildx_bake.md
 
 variable "REGISTRY_USER" {
     default = "frappe"
 }
 
-variable PYTHON_VERSION {
+variable "PYTHON_VERSION" {
     default = "3.11.6"
 }
-variable NODE_VERSION {
+
+variable "NODE_VERSION" {
     default = "20.19.2"
 }
 
+# Default version: version-15 for stable builds
 variable "FRAPPE_VERSION" {
-    default = "main"
+    default = "version-15"
 }
 
 variable "ERPNEXT_VERSION" {
-    default = "main"
+    default = "version-15"
 }
 
 variable "FRAPPE_REPO" {
@@ -37,7 +38,6 @@ variable "LATEST_BENCH_RELEASE" {
 }
 
 # Bench image
-
 target "bench" {
     args = {
         GIT_REPO = "${BENCH_REPO}"
@@ -45,8 +45,8 @@ target "bench" {
     context = "images/bench"
     target = "bench"
     tags = [
-        "frappe/bench:${LATEST_BENCH_RELEASE}",
-        "frappe/bench:latest",
+        "${REGISTRY_USER}/bench:${LATEST_BENCH_RELEASE}",
+        "${REGISTRY_USER}/bench:latest"
     ]
 }
 
@@ -55,25 +55,18 @@ target "bench-test" {
     target = "bench-test"
 }
 
-# Main images
-# Base for all other targets
-
-group "default" {
-    targets = ["erpnext", "base", "build"]
-}
-
+# Tag generator
 function "tag" {
     params = [repo, version]
-    result = [
-      # Push frappe or erpnext branch as tag
-      "${REGISTRY_USER}/${repo}:${version}",
-      # If `version` param is develop (development build) then use tag `latest`
-      "${version}" == "develop" ? "${REGISTRY_USER}/${repo}:latest" : "${REGISTRY_USER}/${repo}:${version}",
-      # Make short tag for major version if possible. For example, from v13.16.0 make v13.
-      can(regex("(v[0-9]+)[.]", "${version}")) ? "${REGISTRY_USER}/${repo}:${regex("(v[0-9]+)[.]", "${version}")[0]}" : "",
-      # Make short tag for major version if possible. For example, from v13.16.0 make version-13.
-      can(regex("(v[0-9]+)[.]", "${version}")) ? "${REGISTRY_USER}/${repo}:version-${regex("([0-9]+)[.]", "${version}")[0]}" : "",
-    ]
+    result = compact([
+        "${REGISTRY_USER}/${repo}:${version}",
+        # If branch is develop → also tag as latest
+        "${version}" == "develop" ? "${REGISTRY_USER}/${repo}:latest" : "",
+        # Major version tag (v15)
+        can(regex("(v?[0-9]+)[.]", "${version}")) ? "${REGISTRY_USER}/${repo}:${regex("(v?[0-9]+)[.]", "${version}")[0]}" : "",
+        # version-15 style tag
+        can(regex("([0-9]+)[.]", "${version}")) ? "${REGISTRY_USER}/${repo}:version-${regex("([0-9]+)[.]", "${version}")[0]}" : ""
+    ])
 }
 
 target "default-args" {
@@ -110,4 +103,8 @@ target "build" {
     dockerfile = "images/production/Containerfile"
     target = "build"
     tags = tag("build", "${ERPNEXT_VERSION}")
+}
+
+group "default" {
+    targets = ["erpnext", "base", "build"]
 }
