@@ -1,12 +1,12 @@
-name: Full ERPNext Multi-Arch Builder
+name: Optimized ERPNext Multi-Arch Builder
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version (main, v15, v14, etc.)"
+        description: "ERPNext version (v15, v14, develop)"
         required: true
-        default: "main"
+        default: "v15"
       python_version:
         description: "Python version"
         required: true
@@ -22,48 +22,64 @@ on:
         default: true
 
 jobs:
-  build-all:
-    name: Build Full ERPNext Stack
+  build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup QEMU for multi-arch
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            base:
+              - 'images/base/**'
+            build:
+              - 'images/build/**'
+
+      - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
+      - name: Login Docker Hub
         if: ${{ github.event.inputs.push_to_dockerhub == 'true' }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Set build environment variables
+      - name: Export build variables
         run: |
-          echo "PYTHON_VERSION=${{ github.event.inputs.python_version }}" >> "$GITHUB_ENV"
-          echo "NODE_VERSION=${{ github.event.inputs.node_version }}" >> "$GITHUB_ENV"
-          echo "FRAPPE_VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
-          echo "ERPNEXT_VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+          echo "PYTHON_VERSION=${{ github.event.inputs.python_version }}" >> $GITHUB_ENV
+          echo "NODE_VERSION=${{ github.event.inputs.node_version }}" >> $GITHUB_ENV
+          echo "FRAPPE_VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          echo "ERPNEXT_VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          echo "REGISTRY_USER=${{ secrets.DOCKERHUB_USERNAME }}" >> $GITHUB_ENV
 
-      - name: Build all images with Docker Buildx Bake
+      - name: Build with Bake
         uses: docker/bake-action@v6
         with:
           files: docker-bake.hcl
-          targets: bench,erpnext,base,build
-          push: ${{ github.event.inputs.push_to_dockerhub == 'true' }}
-        env:
-          REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          push: ${{ github.event.inputs.push_to_dockerhub }}
+          targets: >
+            bench,
+            erpnext
+            ${{ steps.changes.outputs.base == 'true' && ',base' || '' }}
+            ${{ steps.changes.outputs.build == 'true' && ',build' || '' }}
 
       - name: Summary
         run: |
-          echo "💚 BUILD SUCCESSFULLY COMPLETED"
-          echo "Images built:"
-          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/bench"
-          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/erpnext"
-          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/base"
-          echo "- ${{ secrets.DOCKERHUB_USERNAME }}/build"
+          echo "💚 BUILD COMPLETE"
+          echo "Built ERPNext version: ${{ github.event.inputs.version }}"
+          echo "Python: ${{ github.event.inputs.python_version }}"
+          echo "Node: ${{ github.event.inputs.node_version }}"
+          echo ""
+          echo "Rebuild Summary:"
+          echo "Base image rebuilt: ${{ steps.changes.outputs.base }}"
+          echo "Build image rebuilt: ${{ steps.changes.outputs.build }}"
+          echo "Bench image rebuilt: always"
+          echo "ERPNext image rebuilt: always"
