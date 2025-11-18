@@ -54,6 +54,20 @@ target "bench-test" {
     inherits = ["bench"]
     target = "bench-test"
 }
+# mariadb image
+target "mariadb" {
+    context = "images/mariadB"
+    dockerfile = "images/mariadb/Dockerfile"
+    tags = ["${REGISTRY_USER}/mariadb:latest"]
+}
+
+# redis image
+target "redis" {
+    context = "images/redis"
+    dockerfile = "images/redis/Dockerfile"
+    tags = ["${REGISTRY_USER}/redis:latest"]
+}
+
 
 # Tag generator
 function "tag" {
@@ -106,5 +120,5 @@ target "build" {
 }
 
 group "default" {
-    targets = ["erpnext", "base", "build"]
+    targets = ["erpnext", "base", "build", "mariadb", "redis"]
 }
