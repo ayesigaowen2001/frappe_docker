@@ -38,7 +38,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./images/mariadB
-          file: ./images/mariadb/Dockerfile
+          file: ./images/mariadB/Dockerfile
           push: ${{ github.event.inputs.push_to_dockerhub == 'true' }}
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/mariadb:latest
